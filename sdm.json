@@ -1,0 +1,91 @@
+[{  
+    "id": "urn:ngsi-ld:Device:camera-483942:TEAM3",  
+    "type": "Device",  
+    "controlledProperty": [  
+        "occupancy"
+    ],  
+    "value": "1",  
+    "@context": [  
+        "https://raw.githubusercontent.com/smart-data-models/dataModel.Device/master/context.jsonld"  
+    ]  
+},
+{  
+    "id": "urn:ngsi-ld:ParkingSpot:than:linardos:0:TEAM3",  
+    "type": "ParkingSpot",  
+    "category": {  
+        "type": "Property",  
+        "value": [  
+            "onStreet"  
+        ]  
+    },  
+    "location": {  
+        "type": "GeoProperty",  
+        "value": {  
+            "type": "Point",  
+            "coordinates": [  
+                -5.0000000000000,  
+                40.0000000000000  
+            ]  
+        }  
+    },  
+    "status": {  
+        "type": "Property",  
+        "value": "free333",  
+        "observedAt": "2018-09-21T12:00:00Z",  
+        "parkingPermit": {  
+            "type": "Property",  
+            "value": "yes"  
+        }  
+    },  
+    "@context": [  
+        "https://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context.jsonld",  
+        "https://raw.githubusercontent.com/smart-data-models/dataModel.Parking/master/context.jsonld"  
+    ]   
+},
+{  
+    "id": "urn:ngsi-ld:ParkingSpot:than:linardos:1:TEAM3",  
+    "type": "ParkingSpot",  
+    "category": {  
+        "type": "Property",  
+        "value": [  
+            "onStreet"  
+        ]  
+    },  
+    "location": {  
+        "type": "GeoProperty",  
+        "value": {  
+            "type": "Point",  
+            "coordinates": [  
+                -5.0000000000000,  
+                41.0000000000000  
+            ]  
+        }  
+    },  
+    "status": {  
+        "type": "Property",  
+        "value": "free333",  
+        "observedAt": "2018-09-21T12:00:00Z",  
+        "parkingPermit": {  
+            "type": "Property",  
+            "value": "yes"  
+        }  
+    },  
+    "@context": [  
+        "https://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context.jsonld",  
+        "https://raw.githubusercontent.com/smart-data-models/dataModel.Parking/master/context.jsonld"  
+    ]   
+},
+
+{  
+    "id": "urn:ngsi-ld:SoundPressureLevel:id:NLPM:36024607:TEAM3",
+    "type": "SoundPressureLevel",
+    "sounddB":"24.181611557718337",
+    "dateCreated": "2018-09-21T12:00:00Z",  
+    "dateModified": "2018-09-21T12:00:00Z",  
+        "@context": [  
+        "https://smartdatamodels.org/context.jsonld",  
+        "https://raw.githubusercontent.com/smart-data-models/dataModel.OCF/master/context.jsonld"  
+    ]  
+}  
+
+]
