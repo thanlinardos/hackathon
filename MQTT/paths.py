@@ -1,0 +1,1 @@
+project_root = 'C:\\Users\\thanl\\Documents\\Python\\hackathon\\'
