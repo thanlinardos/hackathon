@@ -65,7 +65,7 @@ def id_events(event_table, e_start, e_end, no_events,max_time_per_event):
     
 
 # Plot the initial data from the sensors:
-# plot_initial()
+plot_initial()
 
 # identify events:
 # parameters
@@ -254,7 +254,7 @@ axs.set(xlabel='event_no', ylabel='Delay/period')
 possible_no_noise_levels = np.arange(1,9)
 noiselvl_time_start_pair = np.zeros((no_events,2),dtype=np.float32)
 for i in range(no_events):
-    noiselvl_time_start_pair[i][0] = dblevel[event_table[i][0]-1:event_table[i][1]].max()
+    noiselvl_time_start_pair[i][0] = dblevel[event_table[i][0]-1:event_table[i][1]].max() - 0.2*no_people[event_table[i][0]-1:event_table[i][1]].mean()
     noiselvl_time_start_pair[i][1] = event_table[i][0]
 wcss = check_cluster_multitudes(possible_no_noise_levels,noiselvl_time_start_pair)
 no_noise_levels = find_elbow(wcss,possible_no_noise_levels)
