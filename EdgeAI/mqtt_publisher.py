@@ -9,8 +9,6 @@ from paho.mqtt import client as mqtt_client
 
 
 def connect_mqtt():
-    # broker = 'iot.patras5g.eu'
-    # port = 1872
     broker = 'localhost'
     port = 1883
     client_id = f'python-mqtt-{random.randint(0, 100)}'

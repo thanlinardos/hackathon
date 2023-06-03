@@ -7,7 +7,7 @@ from paths import *  # <-- comment this line
 from clustering_utils import *
 headers = ['timestamp','camera','sound','parking1','parking2']
 # project_root = 'path//to//project//' # <-- uncomment this line with path to project folder
-data = pd.read_csv(f'{project_root}MQTT\\data.csv',names=headers)
+data = pd.read_csv(f'{project_root}EdgeAI\\data.csv',names=headers)
 
 print(data.head())
 start=0
@@ -39,7 +39,7 @@ def plot_initial():
     axs.plot(x[start:stop], parking2[start:stop], 'tab:red')
     axs.set_title('Parking 2')
     axs.set(xlabel='timestamp', ylabel='Active')
-    plt.show()
+    
 
 def id_events(event_table, e_start, e_end, no_events,max_time_per_event):
     i=0
@@ -65,7 +65,7 @@ def id_events(event_table, e_start, e_end, no_events,max_time_per_event):
     
 
 # Plot the initial data from the sensors:
-plot_initial()
+# plot_initial()
 
 # identify events:
 # parameters

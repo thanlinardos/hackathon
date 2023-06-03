@@ -6,11 +6,9 @@ from paho.mqtt import client as mqtt_client
 from pymongo import MongoClient
 
 
-broker = 'iot.patras5g.eu'
-port = 1872
 context_port = 1034
-# broker = 'localhost'
-# port = 1883
+broker = 'localhost'
+port = 1883
 topic = "data"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-team33333300001010101'
