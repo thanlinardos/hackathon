@@ -5,6 +5,6 @@ Then the data.scv file is used to identify events where a vehicle activates the 
 
 ![Figure_1](https://github.com/thanlinardos/hackathon/assets/58235288/5dc91560-19fe-463c-b391-d29909e818d2)
 
-[timetable1](https://github.com/thanlinardos/hackathon/assets/58235288/d6bba3c6-57ed-475c-b0d7-856ceb6794ac)
+![timetable1](https://github.com/thanlinardos/hackathon/assets/58235288/d6bba3c6-57ed-475c-b0d7-856ceb6794ac)
 
 ![timetable2](https://github.com/thanlinardos/hackathon/assets/58235288/dcaa561e-bed4-415b-b1d9-2cb3d64de887)
