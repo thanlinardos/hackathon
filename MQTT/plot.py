@@ -4,6 +4,7 @@ import csv
 import matplotlib.pyplot as plt
 import numpy as np
 from paths import *  # <-- comment this line
+from clustering_utils import *
 headers = ['timestamp','camera','sound','parking1','parking2']
 # project_root = 'path//to//project//' # <-- uncomment this line with path to project folder
 data = pd.read_csv(f'{project_root}MQTT\\data.csv',names=headers)
@@ -40,112 +41,105 @@ def plot_initial():
     axs.set(xlabel='timestamp', ylabel='Active')
     plt.show()
 
+def id_events(event_table, e_start, e_end, no_events,max_time_per_event):
+    i=0
+    while i<x.size:
+        if(parking1[i]==1 or parking2[i]==1):
+            e_start=i
+            found = False
+            for j in range(e_start,e_start+max_time_per_event):
+                if(parking1[j]==0 and parking2[j]==0 and parking1[j-1]==0 and parking2[j-1]==0):
+                    e_end = j
+                    found = True
+                    break
+            if not found:
+                print("warning: increase max_time_per_event")
+                e_end = j
+            event_table[no_events] = [e_start,e_end]
+            no_events+=1
+            i=j
+        else:
+            i+=1
+    event_table = event_table[:no_events]
+    return [event_table,no_events]
+    
+
 # Plot the initial data from the sensors:
 # plot_initial()
 
 # identify events:
-event_table_size = (int) (x.size / 2)
-event_table = np.zeros((event_table_size,2),dtype=np.uint32)
-no_events = 0
-e_start=0
-e_end=0
-i=0
 # parameters
 max_time_per_event = 60
 min_time_between_events = 30
 
-while i<x.size:
-    if(parking1[i]==1 or parking2[i]==1):
-        e_start=i
-        found = False
-        for j in range(e_start,e_start+max_time_per_event):
-            if(parking1[j]==0 and parking2[j]==0 and parking1[j-1]==0 and parking2[j-1]==0):
-                e_end = j
-                found = True
-                break
-        if not found:
-            print("warning: increase max_time_per_event")
-            e_end = j
-        event_table[no_events] = [e_start,e_end]
-        no_events+=1
-        i=j
-    else:
-        i+=1
+[event_table,no_events] = id_events(np.zeros(((int) (x.size / 2),2),dtype=np.uint32),0,0,0,max_time_per_event)
 print(f"Number of events = {no_events}")
 
 # Find all bus stops
 drop_of_people_per_event = np.zeros(no_events,dtype=np.uint8)
-event_starts = np.zeros(no_events,dtype=np.uint32)
-bus_stop_events = np.zeros((no_events,3),dtype=np.float32)   # event_index,drop_of_people,max_noise
-bus_stop_starts = np.zeros(no_events,dtype=np.uint32)
+bus_stop_data = np.zeros(no_events,dtype=[('event_id',np.uint32),('people_drop',np.uint8),('max_noise',np.float32),('event_starts',np.uint32)])
 all_bus_count = 0
 for i in range(no_events):
-    event_starts[i] = event_table[i][0]
-    people_start = no_people[event_table[i][0]-1]
-    people_end = no_people[event_table[i][1]-1]
-    max_noise = dblevel[event_table[i][0]-1]
-    for k in range(event_table[i][0]-1, event_table[i][1]):
-        if dblevel[k]>max_noise:
-            max_noise = dblevel[k]
-    drop_of_people_per_event[i] = people_start - people_end
-    if people_start - people_end>7:
-          bus_stop_events[all_bus_count] = [i,drop_of_people_per_event[i],max_noise]
-          bus_stop_starts[all_bus_count] = event_table[i][0]
-          all_bus_count+=1
+    drop_of_people_per_event[i] = no_people[event_table[i][0]-1] - no_people[event_table[i][1]-1]
+    if drop_of_people_per_event[i]>7:
+        bus_stop_data[all_bus_count] = (i,drop_of_people_per_event[i],dblevel[event_table[i][0]-1:event_table[i][1]].max(),event_table[i][0])
+        all_bus_count+=1
 
-bus_stop_events = bus_stop_events[:all_bus_count]
-bus_stop_starts = bus_stop_starts[:all_bus_count]
-bus_stop_people = np.zeros(all_bus_count,dtype=np.uint8)
-for i in range(all_bus_count):
-    bus_stop_people[i] = bus_stop_events[i][1]
+bus_stop_data = bus_stop_data[:all_bus_count]
 
 print(f'All bus stops: {all_bus_count}')
-print(f'Mean drop of people: {np.mean(bus_stop_people)}')
-
+print(f'Mean drop of people: {np.mean(bus_stop_data["people_drop"])}')
 fig, axs = plt.subplots()
-axs.plot(bus_stop_starts, bus_stop_people, 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
+axs.plot(bus_stop_data["event_starts"], bus_stop_data["people_drop"], 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
 axs.set_title('Drop of people per bus_stop start time')
 axs.set(xlabel='event_time_start', ylabel='Drop of people')
 
-# Distinguish between the 2 bus lines
+# use kmeans clustering to find number of bus lines:
+possible_no_lines = np.arange(1,9)
+people_drop_time_start_pair = np.zeros((all_bus_count,2),dtype=np.uint32)
+people_drop_time_start_pair[:,0] = bus_stop_data['people_drop']
+people_drop_time_start_pair[:,1] = bus_stop_data['event_starts']
+wcss = check_cluster_multitudes(possible_no_lines,people_drop_time_start_pair)
+no_bus_lines = find_elbow(wcss,possible_no_lines)
+# Distinguish between the 2 bus lines (using mean drop of people)
+# first dimension is each bus line, second is each stop of that line and 3rd are the columns: event_index,drop_of_people,max_noise,event_starts
+bus_line_data = np.zeros((no_bus_lines,all_bus_count),dtype=[('event_id',np.uint32),('people_drop',np.uint8),('max_noise',np.float32),('event_starts',np.uint32)])
 
-bus_stop_1_events = np.zeros((all_bus_count,3),dtype=np.float32)  # event_index,drop_of_people,max_noise
-bus_stop_1_starts = np.zeros(all_bus_count,dtype=np.uint32)
-bus_stop_1_people = np.zeros(all_bus_count,dtype=np.uint8)
-bus_stop_2_events = np.zeros((all_bus_count,3),dtype=np.float32)  # event_index,drop_of_people,max_noise
-bus_stop_2_starts = np.zeros(all_bus_count,dtype=np.uint32)
-bus_stop_2_people = np.zeros(all_bus_count,dtype=np.uint8)
 bus_1_count = 0
 bus_2_count = 0
 
+# for i in range(all_bus_count):
+#     if(bus_stop_data["people_drop"][i]>np.mean(bus_stop_data["people_drop"])):
+#         bus_line_data[0][bus_1_count] = bus_stop_data[i]
+#         bus_1_count+=1
+#     else:
+#         bus_line_data[1][bus_2_count] = bus_stop_data[i]
+#         bus_2_count+=1
+
+# same using clustering again:
+cntr,labels=find_centers(bus_stop_data['people_drop'].reshape(-1, 1),no_bus_lines)
+print(f"cluster center for line 1: {cntr[0]} (people_drop)")
+print(f"cluster center for line 2: {cntr[1]} (people_drop)")
 for i in range(all_bus_count):
-    if(bus_stop_people[i]>np.mean(bus_stop_people)):
-        bus_stop_1_events[bus_1_count] = bus_stop_events[i]
-        bus_stop_1_starts[bus_1_count] = event_starts[int(bus_stop_events[i][0])]
-        bus_stop_1_people[bus_1_count] = bus_stop_events[i][1]
+    if labels[i]==0:
+        bus_line_data[0][bus_1_count] = bus_stop_data[i]
         bus_1_count+=1
     else:
-        bus_stop_2_events[bus_2_count] = bus_stop_events[i]
-        bus_stop_2_starts[bus_2_count] = event_starts[int(bus_stop_events[i][0])]
-        bus_stop_2_people[bus_2_count] = bus_stop_events[i][1]
+        bus_line_data[1][bus_2_count] = bus_stop_data[i]
         bus_2_count+=1
 
-# print(f'Bus line 1 stops: {bus_1_count}')
-time_between_bus_1_stops = np.diff(bus_stop_1_starts[:bus_1_count-1])
+print(f'Bus line 1 stops: {bus_1_count}')
+time_between_bus_1_stops = np.diff(bus_line_data[0]["event_starts"][:bus_1_count-1])
 period_1 = np.argmax(np.bincount(time_between_bus_1_stops))
-# print(f'Bus line 1 period: {period_1} ({period_1/60} mins)')
-# print(f'Bus line 2 stops: {bus_2_count}')
-time_between_bus_2_stops = np.diff(bus_stop_2_starts[:bus_2_count-1])
+print(f'Bus line 1 period: {period_1} ({period_1/60} mins)')
+print(f'Bus line 2 stops: {bus_2_count}')
+time_between_bus_2_stops = np.diff(bus_line_data[1]["event_starts"][:bus_2_count-1])
 period_2 = np.argmax(np.bincount(time_between_bus_2_stops))
-# print(f'Bus line 2 period: {period_2} ({period_2/60} mins)')
+print(f'Bus line 2 period: {period_2} ({period_2/60} mins)')
 
 # Correct 2 bus lines by using the periods we found:
-bus_stop_1_events = np.zeros((all_bus_count,3),dtype=np.float32)  # event_index,drop_of_people,max_noise
-bus_stop_1_starts = np.zeros(all_bus_count,dtype=np.uint32)
-bus_stop_1_people = np.zeros(all_bus_count,dtype=np.uint8)
-bus_stop_2_events = np.zeros((all_bus_count,3),dtype=np.float32)  # event_index,drop_of_people,max_noise
-bus_stop_2_starts = np.zeros(all_bus_count,dtype=np.uint32)
-bus_stop_2_people = np.zeros(all_bus_count,dtype=np.uint8)
+bus_line_data = np.zeros((no_bus_lines,all_bus_count),dtype=[('event_id',np.uint32),('people_drop',np.uint8),('max_noise',np.float32),('event_starts',np.uint32)])
+
 bus_1_count = 0
 bus_2_count = 0
 # initial times found from data:
@@ -153,15 +147,13 @@ t10 = 963
 t20 = 3
 t1 = t10
 t2 = t20
-t_e = 0
 prev_pass = -1
 i=0
 while(i<all_bus_count):
-    t_e = bus_stop_starts[i]
-    pass_1 = t_e%period_1<30
-    pass_2 = t_e%period_2<30
+    pass_1 = bus_stop_data["event_starts"][i]%period_1<30
+    pass_2 = bus_stop_data["event_starts"][i]%period_2<30
     if pass_1 and pass_2 and prev_pass<0:
-        if bus_stop_people[i]<np.mean(bus_stop_people):
+        if bus_stop_data["people_drop"][i]<np.mean(bus_stop_data["people_drop"][i]):
             pass_1 = False
             prev_pass = 2
         else:
@@ -178,43 +170,32 @@ while(i<all_bus_count):
             prev_pass = -1
 
     if pass_1:
-        bus_stop_1_events[bus_1_count] = bus_stop_events[i]
-        bus_stop_1_starts[bus_1_count] = event_starts[int(bus_stop_events[i][0])]
-        bus_stop_1_people[bus_1_count] = bus_stop_events[i][1]
+        bus_line_data[0][bus_1_count] = bus_stop_data[i]
         bus_1_count+=1
     elif pass_2:
-        bus_stop_2_events[bus_2_count] = bus_stop_events[i]
-        bus_stop_2_starts[bus_2_count] = event_starts[int(bus_stop_events[i][0])]
-        bus_stop_2_people[bus_2_count] = bus_stop_events[i][1]
+        bus_line_data[1][bus_2_count] = bus_stop_data[i]
         bus_2_count+=1
     i+=1
-bus_stop_1_events = bus_stop_1_events[:bus_1_count]
-bus_stop_1_starts = bus_stop_1_starts[:bus_1_count]
-bus_stop_1_people = bus_stop_1_people[:bus_1_count]
-bus_stop_2_events = bus_stop_2_events[:bus_2_count]
-bus_stop_2_starts = bus_stop_2_starts[:bus_2_count]
-bus_stop_2_people = bus_stop_2_people[:bus_2_count]
-
 print('Corrected bus lines:')
 print(f'Bus line 1 stops: {bus_1_count}')
-time_between_bus_1_stops = np.diff(bus_stop_1_starts[:bus_1_count-1])
+time_between_bus_1_stops = np.diff(bus_line_data[0]["event_starts"][:bus_1_count-1])
 period_1 = np.argmax(np.bincount(time_between_bus_1_stops))
 print(f'Bus line 1 period: {period_1} ({period_1/60} mins)')
-print(f'Mean bus line 1 people drop: {np.mean(bus_stop_1_people)}')
+print(f'Mean bus line 1 people drop: {np.mean(bus_line_data[0]["people_drop"][:bus_1_count])}')
 
 print(f'Bus line 2 stops: {bus_2_count}')
-time_between_bus_2_stops = np.diff(bus_stop_2_starts[:bus_2_count-1])
+time_between_bus_2_stops = np.diff(bus_line_data[1]["event_starts"][:bus_2_count-1])
 period_2 = np.argmax(np.bincount(time_between_bus_2_stops))
 print(f'Bus line 2 period: {period_2} ({period_2/60} mins)')
-print(f'Mean bus line 2 people drop: {np.mean(bus_stop_2_people)}')
+print(f'Mean bus line 2 people drop: {np.mean(bus_line_data[1]["people_drop"][:bus_2_count])}')
 
 fig, axs = plt.subplots()
-axs.plot(bus_stop_1_starts, bus_stop_1_people, 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
+axs.plot(bus_line_data[0]["event_starts"][:bus_1_count], bus_line_data[0]["people_drop"][:bus_1_count], 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
 axs.set_title('Bus Line 1')
 axs.set(xlabel='event_time_start', ylabel='Drop of people')
 
 fig, axs = plt.subplots()
-axs.plot(bus_stop_2_starts, bus_stop_2_people, 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
+axs.plot(bus_line_data[1]["event_starts"][:bus_2_count], bus_line_data[1]["people_drop"][:bus_2_count], 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
 axs.set_title('Bus Line 2')
 axs.set(xlabel='event_time_start', ylabel='Drop of people')
 
@@ -270,7 +251,37 @@ axs.set(xlabel='event_no', ylabel='Delay/period')
 # axs.set(xlabel='arrival time for line 2', ylabel='Delay/period')
 
 # Noise at bus stops -> noise for each bus -> find bus that doesnt stop
-# 
+possible_no_noise_levels = np.arange(1,9)
+noiselvl_time_start_pair = np.zeros((no_events,2),dtype=np.float32)
+for i in range(no_events):
+    noiselvl_time_start_pair[i][0] = dblevel[event_table[i][0]-1:event_table[i][1]].max()
+    noiselvl_time_start_pair[i][1] = event_table[i][0]
+wcss = check_cluster_multitudes(possible_no_noise_levels,noiselvl_time_start_pair)
+no_noise_levels = find_elbow(wcss,possible_no_noise_levels)
+print(f"noise_levels: {no_noise_levels}") # one noise level for cars and one for buses
+cntr,labels=find_centers(noiselvl_time_start_pair[:,0].reshape(-1, 1),no_noise_levels)
+print(f"cluster center for cars: {cntr[0]} [dB]")
+print(f"cluster center for buses: {cntr[1]} [dB]")
+bus_3_ind = np.zeros(no_events,dtype=np.uint32)
+no_bus_3_passes=0
+for i in range(no_events):
+    if labels[i] == 1:
+        if drop_of_people_per_event[i]<=2:
+            bus_3_ind[no_bus_3_passes]=i
+            no_bus_3_passes+=1
+bus_3_pass = np.zeros((no_bus_3_passes,2),dtype=np.uint32)
+for i in range(no_bus_3_passes):
+    bus_3_pass[i][0]=bus_3_ind[i]
+    bus_3_pass[i][1]=event_table[i][0]
+print(f"No of bus 3 passes: {no_bus_3_passes}")
+ones = np.ones(no_bus_3_passes,dtype=np.uint32)
+time_between_bus_3_stops = np.diff(bus_3_pass[:,1][:no_bus_3_passes-1])
+period_3 = np.argmax(np.bincount(time_between_bus_3_stops))
+print(f'Bus line 3 period: {period_3} ({period_3/60} mins)')
+
+fig, axs = plt.subplots()
+axs.plot(bus_3_pass[:,1], ones, 'tab:red', linestyle='None',marker = ".", markersize = 5.0)
+axs.set_title('3rd Bus passes')
+axs.set(xlabel='event_time_start', ylabel='')
+
 plt.show()
-
-
